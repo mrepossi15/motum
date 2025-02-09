@@ -560,47 +560,75 @@ class TrainingController extends Controller
         }
     }
 
+    public function showTrainings(Request $request, $parkId, $activityId)
+    {
+        // Buscar el parque
+        $park = Park::findOrFail($parkId);
+    
+        // Obtener la actividad
+        $activity = Activity::findOrFail($activityId);
+    
+        // Obtener el día seleccionado desde el request
+        $selectedDay = $request->input('day');
+        
+        // Obtener la hora seleccionada y calcular el rango de 1 hora
+        $selectedHour = $request->input('start_time'); // Hora en formato HH:mm
+        $startRange = $selectedHour ? date('H:i:s', strtotime($selectedHour)) : null;
+        $endRange = $selectedHour ? date('H:i:s', strtotime($selectedHour . ' +59 minutes')) : null;
+    
+        // Filtrar los entrenamientos por parque y actividad
+        $query = Training::where('park_id', $park->id)
+            ->where('activity_id', $activityId)
+            ->with(['trainer', 'activity', 'schedules']);
+    
+        // Si se seleccionó un día, filtrar los entrenamientos de ese día
+        if ($selectedDay) {
+            $query->whereHas('schedules', function ($q) use ($selectedDay) {
+                $q->where('day', $selectedDay);
+            });
+        }
+    
+        // Si se seleccionó un horario, filtrar entrenamientos que inicien dentro de ese rango de 1 hora
+        if ($selectedHour) {
+            $query->whereHas('schedules', function ($q) use ($startRange, $endRange) {
+                $q->whereBetween('start_time', [$startRange, $endRange]);
+            });
+        }
+    
+        // Obtener entrenamientos filtrados
+        $trainings = $query->get();
+    
+        // Lista de días de la semana para el filtro
+        $daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    
+        return view('parks.trainings', compact('park', 'activity', 'trainings', 'daysOfWeek', 'selectedDay', 'selectedHour'));
+    }
+
 
 
 
 
     /////API
-public function getTrainingsByPark(Request $request)
-{
-    $request->validate([
-        'park_id' => 'nullable|exists:parks,id', // Hacer park_id opcional
-    ]);
+    public function getTrainingsByPark(Request $request)
+    {
+        $request->validate([
+            'park_id' => 'nullable|exists:parks,id', // Hacer park_id opcional
+        ]);
 
-    // Base de la consulta: entrenamientos del entrenador autenticado
-    $query = Training::with(['schedules', 'activity', 'prices'])
-        ->where('trainer_id', Auth::id());
+        // Base de la consulta: entrenamientos del entrenador autenticado
+        $query = Training::with(['schedules', 'activity', 'prices'])
+            ->where('trainer_id', Auth::id());
 
-    // Filtrar por parque si park_id está presente
-    if ($request->park_id) {
-        $query->where('park_id', $request->park_id);
+        // Filtrar por parque si park_id está presente
+        if ($request->park_id) {
+            $query->where('park_id', $request->park_id);
+        }
+
+        // Ejecutar la consulta y ordenar por fecha de creación
+        $trainings = $query->orderBy('created_at', 'desc')->get();
+
+        return response()->json($trainings);
     }
-
-    // Ejecutar la consulta y ordenar por fecha de creación
-    $trainings = $query->orderBy('created_at', 'desc')->get();
-
-    return response()->json($trainings);
-}
-public function showTrainings($parkId, $activityId)
-{
-    // Buscar el parque
-    $park = Park::findOrFail($parkId);
-
-    // Filtrar los entrenamientos por actividad y parque
-    $trainings = Training::where('park_id', $park->id)
-        ->where('activity_id', $activityId)
-        ->with('trainer', 'activity') // Cargar relaciones necesarias
-        ->get();
-
-    // Obtener el nombre de la actividad
-    $activity = $trainings->first() ? $trainings->first()->activity : null;
-
-    return view('parks.trainings', compact('park', 'activity', 'trainings'));
-}
 
     public function showAll($id)
     {

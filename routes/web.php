@@ -161,6 +161,10 @@ Route::get('/my-trainings', [TrainingController::class, 'myTrainings'])
 Route::get('alumnos/trainings/{id}', [TrainingController::class, 'select'])
     ->name('students-trainings.show');
 
+
+    Route::get('/parks/{parkId}/activities/{activityId}/trainings', [TrainingController::class, 'showTrainings'])
+    ->name('parks.trainings');
+
 /*
 |--------------------------------------------------------------------------
 | Rutas para Parques | POV Alumno
