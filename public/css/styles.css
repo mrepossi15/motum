@@ -1,0 +1,58 @@
+body {
+    font-family: 'Rubik', sans-serif !important;
+}
+
+.text-naranja {
+    color: #DA7744 !important;
+}
+
+.bg-naranja {
+    background-color: #DA7744 !important;
+}
+.bg-naranja-light{
+    background-color: #F7C9A3 !important;
+}
+
+.border-naranja {
+    border: 1px solid #DA7744 !important; /* Asegura que el color naranja tenga prioridad */
+}
+
+.border-naranja-lg {
+    border: 1.5px solid #DA7744 !important; /* Asegura que el color naranja tenga prioridad */
+}
+.btn-naranja {
+    background-color: #FFA500;
+    color: #fff;
+    border: none;
+}
+#map {
+    height: 100vh; /* El mapa ocupa toda la pantalla */
+}
+
+#loading-spinner {
+    z-index: 1050;
+}
+.training-card:hover {
+    box-shadow: 0 4px 15px rgba(255, 165, 0, 0.7); /* Sombra naranja */
+    transform: scale(1.02); /* Efecto ligero de agrandamiento */
+    transition: all 0.3s ease-in-out; /* Transición suave */
+}
+.training-card {
+    background-color: #f8f9fa !important; /* Fondo gris claro */
+    border-radius: 5px; /* Opcional: esquinas redondeadas */
+    transition: all 0.3s ease-in-out; /* Transición suave */
+}
+
+.training-card:hover {
+    box-shadow: 0 4px 10px #F7C9A3 !important; /* Sombra naranja en hover */
+    transform: scale(1.02); /* Efecto ligero de agrandamiento */
+}
+.activity-card {
+    background-color: #ffffff; /* Fondo blanco */
+    transition: all 0.3s ease-in-out; /* Transición para hover */
+}
+
+.activity-card:hover {
+    box-shadow: 0 4px 15px rgba(255, 165, 0, 0.7); /* Sombra naranja */
+    transform: scale(1.05); /* Ligero agrandamiento */
+}

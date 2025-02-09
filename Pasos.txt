@@ -1,0 +1,57 @@
+-Regsitro de alumnos y entrenadores.
+-Agrgar parque desde el dashboard. (que no se repitan).
+-Los parques estan en un menu tipo select.
+-Authentication.
+-Craer entrenamientos con park y user predeterminado.
+-Mostrar entrenmaientos segun parque seleccionado.
+-Agregue level, schedule y activity a trainings.
+-Agregue price a trainings.
+-Implemnet Carbon. Toma fecha y hora actual, en tiempo real.
+-Calendario con los entrenamientos con opcion de filtrar por parques.
+-Mejora d ecalendario para que maruqe lso dias que hay entrenamiento s y  abajo te muestre cuales son.Tipo tarjetas
+_perfeccioanamiento d elas tarejats de calendario y boostrap
+-Que el calendario tenga preseleccionado la fecha actual con los entrenamientos del dia si hay.
+-Disenod e la strajetas d eentrenamiento y que solo te tariaga el horario para ese dia de entrenamiento.
+-Al hacer click en una card d etrainings te redirige a otra pagina. Pero todavia no defini la ruta. SOloq ue cuadno le das click te lleva a una pagina vacia.
+-Redirigir a una pagina de detalle del entrenamiento.
+-Desde show se peude ediatr y eliminar. LA eliminacione sde ese dia onda marte sa las 5.
+- Mi perfil te tare la data de los parques y de lso entrenamientos.
+
+
+TODO: 
+-Poder agregar una foto.
+-Poner la ruedita de carga.
+-Borrar un parque.
+
+ALUMNOS:
+-Integracion con alegoria search y google maps
+-Tomo ubiacion actual y bsuco parques en un radio de 20KM
+-Filtro el mapa por actividad.
+_se actualiz ale mapa cuando agrego un entrenamiento.
+-Le puse unpcoo de chiche la Diseno.
+-Ver y editar perfil.
+-Ver plaza con actividades.
+-Ver entrenameintos de esa actividad en esa plaza.
+-Ver detalle del entrenamiento.
+-Modal con detalles del entrenador.
+
+MAPA:
+-Esta el autocomplete y filtrar por actividades.NO ANDUVO HA YUN PROBLEMA CON LA API
+-Boton que te vulve a tu ubicaicon actual.NO ANDUVO
+
+
+TODO:
+Poner filtro dle tipo de dia y de nivel.
+Poner fotos
+
+----------
+
+Armar Landing
+Favicon
+
+
+LISTO PARA PRETESISSSS!!!!!!!!!
+
+Fallta intergar MP con split payment.
+Paso 2 y medio de motum HU de DOcs.
+
