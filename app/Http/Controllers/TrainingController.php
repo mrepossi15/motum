@@ -220,7 +220,12 @@ class TrainingController extends Controller
             'isClassAccessible', 'accessMessage', 'reservationDetailUrl' // 📌 Se pasa la URL como variable
         ));
     }
-
+    ///Mis entrenamientos del entrenador
+    public function showAll($id)
+    {
+        $training = Training::with(['schedules', 'photos', 'students'])->findOrFail($id);
+        return view('trainings.show', compact('training'));
+    }
     public function edit(Request $request, $id)
     {
         $training = Training::with(['trainer', 'park', 'activity', 'schedules', 'prices'])->findOrFail($id);
@@ -556,9 +561,17 @@ class TrainingController extends Controller
 
     public function select(Request $request, $id)
     {
+        $user = auth()->user();
         // Obtener el entrenamiento con horarios y precios
-        $training = Training::with(['trainer', 'park', 'activity', 'schedules', 'prices'])->findOrFail($id);
+        $training = Training::with(['trainer', 'park', 'activity', 'schedules', 'prices', 'reviews.user'])->findOrFail($id);
 
+        // Verificar si el usuario ha comprado este entrenamiento
+    $hasPurchased = false;
+    if ($user) {
+        $hasPurchased = \App\Models\Payment::where('user_id', $user->id)
+            ->where('training_id', $training->id)
+            ->exists();
+    }
         // Validar si se está enviando un día (por ejemplo, 'Lunes')
         $selectedDay = $request->query('day'); // Día seleccionado desde la URL
         
@@ -577,7 +590,7 @@ class TrainingController extends Controller
             return view('trainer.show', compact('training', 'filteredSchedules', 'selectedDay'));
         } else {
             // Si es alumno, mostrar la vista del alumno
-            return view('student.training.show-training', compact('training', 'filteredSchedules', 'selectedDay'));
+            return view('student.training.show-training', compact('training', 'filteredSchedules', 'selectedDay','hasPurchased'));
         }
     }
     public function showTrainings(Request $request, $parkId, $activityId)
@@ -657,11 +670,7 @@ class TrainingController extends Controller
         return response()->json($trainings);
     }
 
-    public function showAll($id)
-    {
-        $training = Training::with(['schedules', 'photos', 'students'])->findOrFail($id);
-        return view('trainings.show', compact('training'));
-    }
+    
 
 
 

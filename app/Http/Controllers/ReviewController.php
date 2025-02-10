@@ -21,6 +21,7 @@ class ReviewController extends Controller
             'trainer_id' => 'nullable|exists:users,id',
             'training_id' => 'nullable|exists:trainings,id',
         ]);
+        
 
         Review::create([
             'user_id' => Auth::id(),
