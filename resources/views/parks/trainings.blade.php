@@ -11,7 +11,7 @@
 @endif
 <div class="container mt-3">
     <div class="row">
-        <!-- Filtro por Díass -->
+        <!-- Filtro por Díassssssss ok -->
         <div class="col-md-4">
             <strong>Filtrar por Día:</strong><br>
             @foreach($daysOfWeek as $day)
