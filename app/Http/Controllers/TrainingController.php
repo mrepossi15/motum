@@ -559,49 +559,55 @@ class TrainingController extends Controller
             return view('student.training.show-training', compact('training', 'filteredSchedules', 'selectedDay'));
         }
     }
-
     public function showTrainings(Request $request, $parkId, $activityId)
     {
-        // Buscar el parque
+        // Buscar el parque y la actividad
         $park = Park::findOrFail($parkId);
-    
-        // Obtener la actividad
         $activity = Activity::findOrFail($activityId);
     
-        // Obtener el día seleccionado desde el request
-        $selectedDay = $request->input('day');
-        
-        // Obtener la hora seleccionada y calcular el rango de 1 hora
-        $selectedHour = $request->input('start_time'); // Hora en formato HH:mm
-        $startRange = $selectedHour ? date('H:i:s', strtotime($selectedHour)) : null;
-        $endRange = $selectedHour ? date('H:i:s', strtotime($selectedHour . ' +59 minutes')) : null;
+        // Obtener los filtros del request
+        $selectedDays = $request->input('day') ? explode(',', $request->input('day')) : [];
+        $selectedHours = $request->input('start_time') ? explode(',', $request->input('start_time')) : [];
+        $selectedLevels = $request->input('level') ? explode(',', $request->input('level')) : []; // 🔹 Filtro de nivel
     
-        // Filtrar los entrenamientos por parque y actividad
+        // Filtrar entrenamientos
         $query = Training::where('park_id', $park->id)
             ->where('activity_id', $activityId)
             ->with(['trainer', 'activity', 'schedules']);
     
-        // Si se seleccionó un día, filtrar los entrenamientos de ese día
-        if ($selectedDay) {
-            $query->whereHas('schedules', function ($q) use ($selectedDay) {
-                $q->where('day', $selectedDay);
+        // Aplicar filtro de días
+        if (!empty($selectedDays)) {
+            $query->whereHas('schedules', function ($q) use ($selectedDays) {
+                $q->whereIn('day', $selectedDays);
             });
         }
     
-        // Si se seleccionó un horario, filtrar entrenamientos que inicien dentro de ese rango de 1 hora
-        if ($selectedHour) {
-            $query->whereHas('schedules', function ($q) use ($startRange, $endRange) {
-                $q->whereBetween('start_time', [$startRange, $endRange]);
+        // Aplicar filtro de horarios (permitiendo que los entrenamientos comiencen en la hora seleccionada o dentro de los siguientes 59 minutos)
+        if (!empty($selectedHours)) {
+            $query->whereHas('schedules', function ($q) use ($selectedHours) {
+                $q->where(function ($subQuery) use ($selectedHours) {
+                    foreach ($selectedHours as $hour) {
+                        $startRange = date('H:i:s', strtotime($hour)); // Hora seleccionada
+                        $endRange = date('H:i:s', strtotime($hour . ' +59 minutes')); // Hasta 59 min después
+                        $subQuery->orWhereBetween('start_time', [$startRange, $endRange]);
+                    }
+                });
             });
+        }
+    
+        // 🔹 Aplicar filtro de nivel
+        if (!empty($selectedLevels)) {
+            $query->whereIn('level', $selectedLevels);
         }
     
         // Obtener entrenamientos filtrados
         $trainings = $query->get();
     
-        // Lista de días de la semana para el filtro
+        // Lista de días de la semana y niveles
         $daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+        $levels = ['Principiante', 'Intermedio', 'Avanzado']; // 🔹 Niveles disponibles
     
-        return view('parks.trainings', compact('park', 'activity', 'trainings', 'daysOfWeek', 'selectedDay', 'selectedHour'));
+        return view('parks.trainings', compact('park', 'activity', 'trainings', 'daysOfWeek', 'levels', 'selectedDays', 'selectedHours', 'selectedLevels'));
     }
 
 
