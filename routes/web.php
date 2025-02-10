@@ -162,8 +162,7 @@ Route::get('alumnos/trainings/{id}', [TrainingController::class, 'select'])
     ->name('students-trainings.show');
 
 
-    Route::get('/parks/{parkId}/activities/{activityId}/trainings', [TrainingController::class, 'showTrainings'])
-    ->name('parks.trainings');
+    
 
 /*
 |--------------------------------------------------------------------------
@@ -274,6 +273,10 @@ Route::get('/trainings/{id}/available-times', [ReservationController::class, 'ge
     ->middleware('auth')
     ->name('trainings.available-times');
 
-    // Me parece que no lo uso
-Route::get('/training-reservations/{id}/{date}', [ReservationController::class, 'reservationDetail'])
-->name('training.reservation.detail');
+  
+    Route::get('/trainings/{id}/reservation-detail/{date}', [ReservationController::class, 'reservationDetail'])
+->name('trainings.reservation-detail');
+
+Route::patch('/reservations/{id}/update-status', [ReservationController::class, 'updateReservationStatus'])
+    ->name('reservations.updateStatus')
+    ->middleware('auth');

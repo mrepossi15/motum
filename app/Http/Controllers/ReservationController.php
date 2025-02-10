@@ -23,82 +23,48 @@ class ReservationController extends Controller
         $user = Auth::user();
         $training = Training::findOrFail($id);
     
+        // 📌 **Actualizar reservas pasadas a 'completed' si la clase ya comenzó**
+        $now = Carbon::now();
+        TrainingReservation::where('user_id', $user->id)
+            ->whereNull('canceled_at')
+            ->where('status', 'active')
+            ->whereRaw("STR_TO_DATE(CONCAT(date, ' ', time), '%Y-%m-%d %H:%i:%s') < ?", [$now])
+            ->update(['status' => 'completed']);
     
-        // Obtener el pago del usuario para este entrenamiento
+        // 📌 **Obtener el pago del usuario para este entrenamiento**
         $payment = Payment::where('user_id', $user->id)->where('training_id', $id)->first();
-    
         if (!$payment) {
             return back()->with('error', 'No se encontró el pago para este entrenamiento.');
         }
-    
         $weeklySessions = $payment->weekly_sessions;
     
-        // 📌 **Regla 1: Solo permitir reservas dentro de los próximos 4 días**
-        $today = Carbon::today();
-        $maxReservationDate = $today->copy()->addDays(4);
-    
-        if (Carbon::parse($request->date)->greaterThan($maxReservationDate)) {
-            return back()->with('error', 'Solo puedes reservar clases dentro de los próximos 4 días.');
-        }
-    
-        // 📌 **Regla 2: Validar que la fecha seleccionada sea en un día disponible**
-        $requestedDay = Carbon::parse($request->date)->format('l'); // Obtiene el día de la semana en inglés
-    
-        // Convertir los nombres de días a español
-        $daysMap = [
-            'Monday' => 'Lunes',
-            'Tuesday' => 'Martes',
-            'Wednesday' => 'Miércoles',
-            'Thursday' => 'Jueves',
-            'Friday' => 'Viernes',
-            'Saturday' => 'Sábado',
-            'Sunday' => 'Domingo'
-        ];
-        $requestedDaySpanish = $daysMap[$requestedDay];
-    
-        // Obtener los días en los que este entrenamiento está disponible
-        $availableDays = TrainingSchedule::where('training_id', $id)->pluck('day')->toArray(); // Ejemplo: ['Martes', 'Jueves']
-    
-        if (!in_array($requestedDaySpanish, $availableDays)) {
-            return back()->with('error', "Este entrenamiento solo está disponible los días: " . implode(', ', $availableDays) . ".");
-        }
-    
-        // 📌 **Regla 3: Contar las reservas activas de la semana**
-        $startOfWeek = Carbon::now()->startOfWeek(); // Lunes
-        $endOfWeek = Carbon::now()->endOfWeek(); // Domingo
-    
-        $activeReservations = TrainingReservation::where('user_id', $user->id)
-            ->where('training_id', $id)
-            ->whereBetween('date', [$startOfWeek, $endOfWeek])
-            ->where(function ($query) {
-                $query->whereNull('canceled_at') // No canceladas
-                      ->orWhere('canceled_at', '>=', Carbon::now()->subHours(12)); // Canceladas después de 12 horas
-            })
+        // 📌 **Contar las reservas completadas y no-show de la semana**
+        $reservationsThisWeek = TrainingReservation::where('user_id', $user->id)
+            ->whereBetween('date', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()])
+            ->whereIn('status', ['completed', 'no-show']) // ✅ Solo contar reservas ya usadas
             ->count();
     
-        if ($activeReservations >= $weeklySessions) {
-            return back()->with('error', 'Ya has reservado todas tus clases de esta semana.');
+        if ($reservationsThisWeek >= $weeklySessions) {
+            return back()->with('error', 'Ya has completado todas tus clases de esta semana.');
         }
-        // 📌 **Verificar si el usuario ya tiene una reserva en la misma fecha y hora**
+    
+        // 📌 **Verificar si el usuario tiene una reserva ACTIVA**
         $existingReservation = TrainingReservation::where('user_id', $user->id)
-            ->where('training_id', $id)
-            ->where('date', $request->date)
-            ->where('time', $request->time)
+            ->where('status', 'active')
             ->first();
     
         if ($existingReservation) {
-            return back()->with('error', 'Ya tienes una reserva para este entrenamiento en la misma fecha y horario.');
+            return back()->with('error', 'Solo puedes tener una reserva activa a la vez.');
         }
     
-        // 📌 **Regla 4: Verificar si hay cupos disponibles**
+        // 📌 **Verificar si hay cupos disponibles**
         $currentReservations = TrainingReservation::where('training_id', $id)
             ->where('date', $request->date)
             ->where('time', $request->time)
             ->count();
     
-        $availableSpots = $training->available_spots - $currentReservations;
-        if ($availableSpots <= 0) {
-        return back()->with('error', 'No hay cupos disponibles para este horario.');
+        if ($currentReservations >= $training->available_spots) {
+            return back()->with('error', 'No hay cupos disponibles para este horario.');
         }
     
         // 📌 **Crear la reserva**
@@ -107,9 +73,10 @@ class ReservationController extends Controller
             'training_id' => $id,
             'date' => $request->date,
             'time' => $request->time,
+            'status' => 'active', // ✅ Nueva reserva en estado activo
         ]);
     
-        return redirect()->route('my.trainings')->with('success', 'Reserva realizada con éxito.');
+        return redirect()->route('student.training.myTrainings')->with('success', 'Reserva realizada con éxito.');
     }
     public function cancelReservation($id) {
         $reservation = TrainingReservation::where('id', $id)
@@ -119,15 +86,13 @@ class ReservationController extends Controller
         $reservationTime = Carbon::parse($reservation->date . ' ' . $reservation->time);
         $now = Carbon::now();
     
-        if ($now->diffInHours($reservationTime) >= 12) {
-            // Cancelación con más de 12 horas → Se elimina la reserva
-            $reservation->delete();
-            return back()->with('success', 'Reserva cancelada sin penalización.');
-        } else {
-            // Cancelación con menos de 12 horas → Se marca como cancelada (pero cuenta como usada)
-            $reservation->update(['canceled_at' => $now]);
-            return back()->with('warning', 'Cancelaste tu reserva con menos de 12 horas de anticipación. Se te contará como una clase utilizada.');
+        if ($now->diffInHours($reservationTime) < 6) {
+            return back()->with('error', 'No puedes cancelar una reserva con menos de 6 horas de anticipación.');
         }
+    
+        $reservation->delete();
+    
+        return back()->with('success', 'Reserva cancelada correctamente.');
     }
     public function getAvailableTimes(Request $request, $id) {
         $date = Carbon::parse($request->date);
@@ -145,36 +110,20 @@ class ReservationController extends Controller
         ];
         $requestedDaySpanish = $daysMap[$requestedDay];
     
-        \Log::info("🔍 Verificando disponibilidad para {$requestedDaySpanish} ({$request->date})");
+        \Log::info("🔍 Buscando horarios para {$requestedDaySpanish} ({$request->date}) en entrenamiento {$id}");
+    
+        // Obtener la hora actual si la fecha es hoy
+        $currentTime = Carbon::now()->format('H:i:s');
     
         // Obtener los horarios disponibles para ese día
         $availableTimes = TrainingSchedule::where('training_id', $id)
             ->where('day', $requestedDaySpanish)
+            ->when($date->isToday(), function ($query) use ($currentTime) {
+                return $query->where('start_time', '>=', $currentTime);
+            })
             ->get(['id', 'start_time', 'end_time']);
     
         // 🚨 **Filtrar horarios suspendidos**
-        foreach ($availableTimes as $time) {
-            $isSuspended = TrainingStatus::where('training_schedule_id', $time->id)
-                ->where('date', $request->date)
-                ->where('status', 'suspended')
-                ->exists();
-    
-            if ($isSuspended) {
-                \Log::info("🚨 Clase suspendida detectada: No se mostrará en la selección ({$request->date})");
-                continue; // No agregar horarios suspendidos
-            }
-    
-            // Obtener cupos disponibles por horario
-            $reservationsCount = TrainingReservation::where('training_id', $id)
-                ->where('date', $request->date)
-                ->where('time', $time->start_time)
-                ->count();
-    
-            $availableSpots = Training::find($id)->available_spots - $reservationsCount;
-            $time->available_spots = max($availableSpots, 0); // Evita valores negativos
-        }
-    
-        // 🚨 **Filtrar horarios suspendidos del array antes de devolverlo**
         $availableTimes = $availableTimes->reject(function ($time) use ($request) {
             return TrainingStatus::where('training_schedule_id', $time->id)
                 ->where('date', $request->date)
@@ -194,11 +143,39 @@ class ReservationController extends Controller
     }
 
     // Me parece que no lo uso
-    public function reservationDetail($id, $date)
+    public function reservationDetail($id, $date, Request $request)
     {
+        $selectedTime = $request->query('time'); // Obtener la hora seleccionada
+    
         $training = Training::with('park')->findOrFail($id);
-        $reservations = TrainingReservation::where('training_id', $id)->where('date', $date)->get();
-
-        return view('trainings.reservation-detail', compact('training', 'date', 'reservations'));
+    
+        // Filtrar las reservas por fecha y hora específica
+        $reservations = TrainingReservation::where('training_id', $id)
+            ->where('date', $date)
+            ->when($selectedTime, function ($query) use ($selectedTime) {
+                return $query->where('time', $selectedTime);
+            })
+            ->get();
+    
+        return view('trainings.reservation-detail', compact('training', 'date', 'reservations', 'selectedTime'));
     }
+
+    public function updateReservationStatus(Request $request, $id)
+{
+    $request->validate([
+        'status' => 'required|in:completed,no-show',
+    ]);
+
+    $reservation = TrainingReservation::findOrFail($id);
+
+    // Verificar que el usuario que intenta cambiar el estado sea el entrenador de la clase
+    if (Auth::user()->id !== $reservation->training->trainer_id) {
+        return back()->with('error', 'No tienes permiso para modificar esta reserva.');
+    }
+
+    // Actualizar el estado de la reserva
+    $reservation->update(['status' => $request->status]);
+
+    return back()->with('success', 'Estado de la reserva actualizado correctamente.');
+}
 }

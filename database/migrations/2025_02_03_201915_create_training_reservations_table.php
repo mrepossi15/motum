@@ -12,6 +12,7 @@ return new class extends Migration {
             $table->date('date'); // Fecha específica de la clase reservada
             $table->time('time'); // Hora específica de la clase reservada
             $table->timestamp('canceled_at')->nullable();
+            $table->enum('status', ['active', 'completed', 'no-show'])->default('active');
             $table->timestamps();
         });
     }

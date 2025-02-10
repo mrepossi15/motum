@@ -22,52 +22,56 @@
     </div>
 
     <h2 class="mt-4">Mis Reservas</h2>
-    @if($reservations->isEmpty())
-        <p>No tienes reservas aún.</p>
-    @else
-        <table class="table">
-            <tr>
-                <th>Entrenamiento</th>
-                <th>Fecha</th>
-                <th>Hora</th>
-                <th>Cupos Disponibles</th>
-                <th>Estado</th>
-                <th>Acción</th>
-            </tr>
-            @foreach($reservations as $reservation)
-            <tr>
-                <td>{{ $reservation->training->title }}</td>
-                <td>{{ $reservation->date }}</td>
-                <td>{{ $reservation->time }}</td>
-                <td>
-                    @php
-                        $totalReservations = \App\Models\TrainingReservation::where('training_id', $reservation->training->id)
-                            ->where('date', $reservation->date)
-                            ->where('time', $reservation->time)
-                            ->count();
-                        $cuposRestantes = $reservation->training->available_spots - $totalReservations;
-                    @endphp
-                    {{ $cuposRestantes }} / {{ $reservation->training->available_spots }}
-                </td>
-                <td>
-                    @if($reservation->canceled_at)
-                        <span class="badge bg-danger">Cancelada</span>
-                    @else
-                        <span class="badge bg-success">Activa</span>
-                    @endif
-                </td>
-                <td>
-                    @if(!$reservation->canceled_at)
-                        <form action="{{ route('cancel.reservation', $reservation->id) }}" method="POST">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-danger btn-sm">Cancelar</button>
-                        </form>
-                    @endif
-                </td>
-            </tr>
-            @endforeach
-        </table>
-    @endif
+@if($reservations->isEmpty())
+    <p>No tienes reservas aún.</p>
+@else
+    <table class="table">
+        <tr>
+            <th>Entrenamiento</th>
+            <th>Fecha</th>
+            <th>Hora</th>
+            <th>Cupos Disponibles</th>
+            <th>Estado</th>
+            <th>Acción</th>
+        </tr>
+        @foreach($reservations as $reservation)
+        <tr>
+            <td>{{ $reservation->training->title }}</td>
+            <td>{{ $reservation->date }}</td>
+            <td>{{ $reservation->time }}</td>
+            <td>
+                @php
+                    $totalReservations = \App\Models\TrainingReservation::where('training_id', $reservation->training->id)
+                        ->where('date', $reservation->date)
+                        ->where('time', $reservation->time)
+                        ->count();
+                    $cuposRestantes = $reservation->training->available_spots - $totalReservations;
+                @endphp
+                {{ $cuposRestantes }} / {{ $reservation->training->available_spots }}
+            </td>
+            <td>
+                @if($reservation->status === 'active')
+                    <span class="badge bg-success">Activa</span>
+                @elseif($reservation->status === 'completed')
+                    <span class="badge bg-primary">Completada</span>
+                @elseif($reservation->status === 'no-show')
+                    <span class="badge bg-warning">No asistió</span>
+                @endif
+            </td>
+            <td>
+                @if($reservation->status === 'active')
+                    <form action="{{ route('cancel.reservation', $reservation->id) }}" method="POST">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-danger btn-sm">Cancelar</button>
+                    </form>
+                @else
+                    <span class="text-muted">No modificable</span>
+                @endif
+            </td>
+        </tr>
+        @endforeach
+    </table>
+@endif
 </main>
 @endsection

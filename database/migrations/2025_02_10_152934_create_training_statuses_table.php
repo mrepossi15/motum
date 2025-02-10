@@ -11,11 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('training_status', function (Blueprint $table) {
+        Schema::create('training_statuses', function (Blueprint $table) {
             $table->id();
             $table->foreignId('training_schedule_id')->constrained()->onDelete('cascade');
             $table->date('date'); // Fecha específica de la clase suspendida
-            $table->enum('status', ['active', 'suspended'])->default('active');
+            $table->enum('status', ['active', 'suspended',])->default('active');
             $table->timestamps();
         });
     }
@@ -25,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('training_status');
+        Schema::dropIfExists('training_statuses');
     }
 };

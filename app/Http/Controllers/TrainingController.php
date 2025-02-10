@@ -11,6 +11,7 @@ use App\Models\TrainingSchedule;
 use App\Models\TrainingPrice;
 use App\Models\TrainingStatus;
 use App\Models\Payment;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Facades\Image;
@@ -149,8 +150,7 @@ class TrainingController extends Controller
     {   
         $selectedDate = $request->query('date'); 
         $selectedTime = $request->query('time');
-
-        // Obtener el entrenamiento con todas sus relaciones
+    
         $training = Training::with([
             'trainer',
             'park',
@@ -158,21 +158,18 @@ class TrainingController extends Controller
             'schedules',
             'prices',
             'students',
-            'reservations.user' // 🔥 Asegura que se cargue la relación con 'user'
+            'reservations.user' 
         ])->findOrFail($id);
-
-        // 🔹 **Forzar actualización del modelo** 🔹
-        $training->refresh(); // Esto asegura que la vista refleje los cambios recientes
-
-        // Filtrar horarios por el día seleccionado
+    
+        $training->refresh();
+    
         $selectedDay = $request->query('day');
         $filteredSchedules = $training->schedules;
-
+    
         if ($selectedDay) {
             $filteredSchedules = $filteredSchedules->filter(fn($schedule) => $schedule->day === $selectedDay);
         }
-
-        // 🔹 **EXCLUIR CLASES SUSPENDIDAS** 🔹
+    
         if ($selectedDate) {
             $filteredSchedules = $filteredSchedules->filter(function ($schedule) use ($selectedDate) {
                 return !TrainingStatus::where('training_schedule_id', $schedule->id)
@@ -181,23 +178,46 @@ class TrainingController extends Controller
                     ->exists();
             });
         }
-
-        // Filtrar reservas por la fecha seleccionada
+    
         $filteredReservations = $selectedDate
-            ? $training->reservations->where('date', $selectedDate)->values()
-            : collect([]); // Evita que devuelva `null`
-
-        // Filtrar los horarios si se seleccionó un tiempo específico
+            ? $training->reservations->where('date', $selectedDate)->groupBy('time') 
+            : collect([]);
+    
         if ($selectedTime) {
             $filteredSchedules = $filteredSchedules->filter(fn($schedule) => $schedule->start_time == $selectedTime);
         }
-
-        // Determinar la vista según el rol del usuario
+    
+        // 📌 **Construir URL para tomar lista**
+        $reservationDetailUrl = route('trainings.reservation-detail', [
+            'id' => $training->id,
+            'date' => $selectedDate,
+            'time' => $selectedTime
+        ]);
+    
+        // 📌 **Determinar si el entrenador puede tomar lista**
+        $isClassAccessible = false;
+        $accessMessage = '';
+    
+        if ($selectedDate && $selectedTime) {
+            $classStartTime = Carbon::parse("$selectedDate $selectedTime");
+            $classEndTime = $classStartTime->copy()->addHours(24);
+            $now = now();
+    
+            if ($now->lessThan($classStartTime)) {
+                $accessMessage = "Disponible desde " . $classStartTime->format('H:i');
+            } elseif ($now->greaterThanOrEqualTo($classStartTime) && $now->lessThanOrEqualTo($classEndTime)) {
+                $isClassAccessible = true;
+            } else {
+                $accessMessage = "Acceso cerrado";
+            }
+        }
+    
         $role = auth()->user()->role;
         $view = ($role === 'entrenador' || $role === 'admin') ? 'trainer.training.show' : 'student.show-training';
-
+    
         return view($view, compact(
-            'training', 'filteredSchedules', 'selectedDay', 'selectedTime', 'selectedDate', 'filteredReservations'
+            'training', 'filteredSchedules', 'selectedDay', 'selectedTime', 'selectedDate', 'filteredReservations',
+            'isClassAccessible', 'accessMessage', 'reservationDetailUrl' // 📌 Se pasa la URL como variable
         ));
     }
 
@@ -524,12 +544,13 @@ class TrainingController extends Controller
             ->pluck('training')
             ->unique();
     
-        // Obtener las reservas activas del usuario
+        // Obtener solo las reservas activas
         $reservations = TrainingReservation::where('user_id', $userId)
+            ->whereIn('status', ['active', 'completed', 'no-show']) // Filtrar por estado
             ->with('training')
             ->orderBy('date', 'asc')
             ->get();
-    
+        
         return view('student.training.my-trainings', compact('trainings', 'reservations'));
     }
 

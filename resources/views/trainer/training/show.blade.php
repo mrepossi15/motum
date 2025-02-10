@@ -48,16 +48,16 @@
                 @endforeach
             </ul>
        
-            <<h3>Participantes para {{ $selectedDate }} ({{ $filteredReservations->count() }}/ {{ $training->available_spots }})</h3>
+            <h3>Participantes para {{ $selectedDate }} - {{ $selectedTime }} ({{ $filteredReservations->has($selectedTime) ? $filteredReservations[$selectedTime]->count() : 0 }}/{{ $training->available_spots }})</h3>
 
-@if ($filteredReservations->count() > 0)
+@if ($filteredReservations->has($selectedTime) && $filteredReservations[$selectedTime]->isNotEmpty())
     <ul>
-        @foreach ($filteredReservations as $reservation)
-            <li>{{ $reservation->user->name }} ({{ $reservation->user->email }}) - {{ $reservation->time }}</li>
+        @foreach ($filteredReservations[$selectedTime] as $reservation)
+            <li>{{ $reservation->user->name }} ({{ $reservation->user->email }})</li>
         @endforeach
     </ul>
 @else
-    <p>No hay participantes para esta clase en esta fecha exacta.</p>
+    <p>No hay participantes para este horario en la fecha seleccionada.</p>
 @endif
         </div>
         <div class="card shadow-sm mb-4">
@@ -79,6 +79,16 @@
                 </div>
             @endif
         </div>
+        
+        @if($isClassAccessible)
+    <a href="{{ $reservationDetailUrl }}" class="btn btn-success">
+       Tomar Lista
+    </a>
+@else
+    <button class="btn btn-secondary" disabled>
+        {{ $accessMessage }}
+    </button>
+@endif
     </div>
         <div class="card-footer text-end">
             <a href="{{ route('trainer.calendar') }}" class="btn btn-outline-secondary">Volver al calendario</a>
