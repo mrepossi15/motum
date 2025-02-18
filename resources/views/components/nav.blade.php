@@ -44,6 +44,9 @@
                                 <a class="nav-link text-naranja" href="{{ route('cart.view') }}">Mi Carrito</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link text-naranja" href="{{ route('favorites.index') }}">Favoritos</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link text-naranja" href="{{ route('student.training.myTrainings') }}">Mis Entrenamientos</a>
                             </li>
                             

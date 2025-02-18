@@ -583,40 +583,45 @@ class TrainingController extends Controller
         return view('student.training.my-trainings', compact('trainings', 'reservations'));
     }
 
-    public function select(Request $request, $id)
-    {
-        $user = auth()->user();
-        // Obtener el entrenamiento con horarios y precios
-        $training = Training::with(['trainer', 'park', 'activity', 'schedules', 'prices', 'reviews.user'])->findOrFail($id);
+  public function select(Request $request, $id)
+{
+    $user = auth()->user();
+    $training = Training::with(['trainer', 'park', 'activity', 'schedules', 'prices', 'reviews.user'])->findOrFail($id);
 
-        // Verificar si el usuario ha comprado este entrenamiento
+    // Verificar si el usuario ha comprado este entrenamiento
     $hasPurchased = false;
     if ($user) {
         $hasPurchased = \App\Models\Payment::where('user_id', $user->id)
             ->where('training_id', $training->id)
             ->exists();
     }
-        // Validar si se está enviando un día (por ejemplo, 'Lunes')
-        $selectedDay = $request->query('day'); // Día seleccionado desde la URL
-        
-        // Filtrar horarios por el día seleccionado
-        $filteredSchedules = $selectedDay
-            ? $training->schedules->filter(function ($schedule) use ($selectedDay) {
-                return $schedule->day === $selectedDay; // Devuelve solo los horarios del día
-            })
-            : $training->schedules; // Todos los horarios si no se especifica el día
 
-        // Determinar la vista según el rol del usuario
-        $role = auth()->user()->role;
-
-        if ($role === 'entrenador' || $role === 'admin') {
-            // Si es entrenador o admin, mostrar la vista del entrenador
-            return view('trainer.show', compact('training', 'filteredSchedules', 'selectedDay'));
-        } else {
-            // Si es alumno, mostrar la vista del alumno
-            return view('student.training.show-training', compact('training', 'filteredSchedules', 'selectedDay','hasPurchased'));
-        }
+    // Validar si el usuario ya ha guardado este entrenamiento en favoritos
+    $isFavorite = false;
+    if ($user) {
+        $isFavorite = \App\Models\Favorite::where('user_id', $user->id)
+            ->where('favoritable_id', $training->id)
+            ->where('favoritable_type', Training::class)
+            ->exists();
     }
+    
+
+    // Validar si se está enviando un día (por ejemplo, 'Lunes')
+    $selectedDay = $request->query('day'); 
+    $filteredSchedules = $selectedDay
+        ? $training->schedules->filter(function ($schedule) use ($selectedDay) {
+            return $schedule->day === $selectedDay;
+        })
+        : $training->schedules;
+
+    $role = auth()->user()->role;
+
+    if ($role === 'entrenador' || $role === 'admin') {
+        return view('trainer.show', compact('training', 'filteredSchedules', 'selectedDay', 'isFavorite'));
+    } else {
+        return view('student.training.show-training', compact('training', 'filteredSchedules', 'selectedDay', 'hasPurchased', 'isFavorite'));
+    }
+}
     public function showTrainings(Request $request, $parkId, $activityId)
     {
         // Buscar el parque y la actividad

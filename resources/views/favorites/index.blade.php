@@ -32,6 +32,7 @@
                         {{ $favorite->favoritable->name ?? 'Parque no disponible' }}
                     </a>
                 </li>
+                
             @endforeach
         </ul>
     @endif

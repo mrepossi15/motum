@@ -7,6 +7,7 @@ use Algolia\AlgoliaSearch\Api\SearchClient;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use App\Models\Activity;
+use App\Models\Favorite;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Facades\Image;
 
@@ -111,11 +112,19 @@ class ParkController extends Controller
 
     public function show(Request $request, $id)
     {
+        $user = auth()->user();
         $park = Park::with('trainings.activity')->findOrFail($id);
-
-        return view('parks.show', compact('park'));
-        return response()->json($park);
-
+    
+        // Verificar si el parque está en favoritos
+        $isFavorite = false;
+        if ($user) {
+            $isFavorite = Favorite::where('user_id', $user->id)
+            ->where('favoritable_id', $park->id)
+            ->where('favoritable_type', Park::class)
+            ->exists();
+        }
+    
+        return view('parks.show', compact('park', 'isFavorite'));
     }
 
 public function getNearbyParks(Request $request)

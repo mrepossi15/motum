@@ -15,8 +15,12 @@
     <div class="card shadow-sm">
         <div class="card-header bg-naranja text-white d-flex justify-content-between align-items-center">
             <h2>{{ $training->title }}</h2>
-            <button class="btn btn-outline-danger favorite-btn" data-id="{{ $training->id }}" data-type="training">
-                ❤️ Guardar
+            <button id="favorite-btn" 
+                class="btn {{ $isFavorite ? 'btn-danger' : 'btn-outline-danger' }}" 
+                data-id="{{ $training->id }}" 
+                data-type="training"
+                data-favorite="{{ $isFavorite ? 'true' : 'false' }}">
+                ❤️ {{ $isFavorite ? 'Guardado' : 'Guardar' }}
             </button>
         </div>
 
@@ -70,16 +74,30 @@
             <hr>
 
             <h5>Reseñas</h5>
-            @forelse($training->reviews as $review)
-                <div class="review mb-3">
-                    <p><strong>Calificación:</strong> {{ $review->rating }} / 5</p>
-                    <p><strong>Comentario:</strong> {{ $review->comment }}</p>
-                    <p><small><strong>Autor:</strong> {{ $review->user->name }}</small></p>
-                    <hr>
-                </div>
-            @empty
-                <p>No hay reseñas para este entrenador.</p>
-            @endforelse
+
+@if($training->reviews->isEmpty())
+    <p>No hay reseñas para este entrenador.</p>
+@else
+    @foreach($training->reviews as $review)
+        <div class="review mb-3 p-3 border rounded shadow-sm">
+            <p><strong>Calificación:</strong> ⭐ {{ $review->rating }} / 5</p>
+            <p><strong>Comentario:</strong> {{ $review->comment }}</p>
+            <p><small><strong>Autor:</strong> {{ $review->user->name }}</small></p>
+
+            <!-- Solo permitir eliminar si el usuario autenticado es el autor o un administrador -->
+            @if(Auth::id() === $review->user_id || Auth::user()->role === 'admin')
+                <form action="{{ route('reviews.destroy', $review->id) }}" method="POST" class="d-inline">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Seguro que quieres eliminar esta reseña?')">
+                        ❌ Eliminar
+                    </button>
+                </form>
+            @endif
+            <hr>
+        </div>
+    @endforeach
+@endif
 
             @auth
                 @if($hasPurchased)
@@ -160,4 +178,87 @@
     </div>
 
 </main>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    function attachFavoriteButtonListener() {
+        let button = document.querySelector("#favorite-btn");
+
+        if (!button) {
+            console.warn("❌ No se encontró el botón de favoritos en el DOM. Reintentando...");
+            setTimeout(attachFavoriteButtonListener, 500);
+            return;
+        }
+
+        console.log("✅ Botón encontrado, adjuntando evento click.");
+
+        // 🔥 Asegurar que el color inicial del botón coincida con la base de datos
+        let isFavorite = button.dataset.favorite === "true";
+        button.classList.toggle("btn-danger", isFavorite);
+        button.classList.toggle("btn-outline-danger", !isFavorite);
+        button.innerHTML = isFavorite ? "❤️ Guardado" : "❤️ Guardar";
+
+        button.addEventListener("click", async function (event) {
+            event.preventDefault();
+
+            if (button.dataset.processing === "true") return;
+            button.dataset.processing = "true";
+
+            let favoritableId = button.dataset.id;
+            let favoritableType = button.dataset.type;
+            let isCurrentlyFavorite = button.classList.contains("btn-danger");
+
+            // 🔥 Cambia el estado en la UI
+            button.classList.toggle("btn-danger", !isCurrentlyFavorite);
+            button.classList.toggle("btn-outline-danger", isCurrentlyFavorite);
+            button.innerHTML = !isCurrentlyFavorite ? "❤️ Guardado" : "❤️ Guardar";
+
+            try {
+                let response = await fetch("/favorites/toggle", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute("content"),
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ favoritable_id: favoritableId, favoritable_type: favoritableType }),
+                });
+
+                if (!response.ok) {
+                    throw new Error("Error en la respuesta del servidor");
+                }
+
+                let data = await response.json();
+                console.log("✅ Respuesta del servidor:", data);
+
+                if (data.status === "added") {
+                    button.classList.add("btn-danger");
+                    button.classList.remove("btn-outline-danger");
+                    button.innerHTML = "❤️ Guardado";
+                    button.dataset.favorite = "true"; // 🔥 Guardar estado en el dataset
+                } else if (data.status === "removed") {
+                    button.classList.remove("btn-danger");
+                    button.classList.add("btn-outline-danger");
+                    button.innerHTML = "❤️ Guardar";
+                    button.dataset.favorite = "false"; // 🔥 Guardar estado en el dataset
+                }
+
+            } catch (error) {
+                console.error("❌ Error en la solicitud:", error);
+
+                // 🔥 Si hay error, revertir el cambio
+                button.classList.toggle("btn-danger", isCurrentlyFavorite);
+                button.classList.toggle("btn-outline-danger", !isCurrentlyFavorite);
+                button.innerHTML = isCurrentlyFavorite ? "❤️ Guardado" : "❤️ Guardar";
+
+                alert("Hubo un error al procesar la solicitud.");
+            } finally {
+                setTimeout(() => {
+                    button.dataset.processing = "false";
+                }, 1000);
+            }
+        });
+    }
+
+    attachFavoriteButtonListener();
+});
+</script>
 @endsection

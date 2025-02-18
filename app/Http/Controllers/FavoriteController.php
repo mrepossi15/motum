@@ -6,53 +6,83 @@ use App\Models\Favorite;
 use App\Models\Park;
 use App\Models\Training;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class FavoriteController extends Controller
 {
-    // Guardar un parque o entrenamiento como favorito
+ 
+
     public function toggleFavorite(Request $request)
     {
-        $request->validate([
-            'favoritable_id' => 'required|integer',
-            'favoritable_type' => 'required|string|in:park,training',
-        ]);
-
         $user = Auth::user();
-
-        // Buscar si ya existe en favoritos
-        $favorite = Favorite::where('user_id', $user->id)
-            ->where('favoritable_id', $request->favoritable_id)
-            ->where('favoritable_type', $request->favoritable_type) // Guardamos "park" o "training"
-            ->first();
-
-        if ($favorite) {
-            $favorite->delete();
-            return response()->json(['message' => 'Eliminado de favoritos', 'status' => 'removed']);
-        } else {
-            Favorite::create([
+        $logId = uniqid();
+    
+        $modelClass = match ($request->favoritable_type) {
+            'park' => 'App\Models\Park',
+            'training' => 'App\Models\Training',
+            default => throw new \InvalidArgumentException('Tipo de favorito no válido'),
+        };
+    
+        \Log::info("🟢 [$logId] Intentando modificar favoritos", [
+            'user_id' => $user->id,
+            'favoritable_id' => $request->favoritable_id,
+            'favoritable_type' => $modelClass,
+        ]);
+    
+        return DB::transaction(function () use ($user, $request, $modelClass, $logId) {
+            $favorite = Favorite::where([
+                ['user_id', '=', $user->id],
+                ['favoritable_id', '=', $request->favoritable_id],
+                ['favoritable_type', '=', $modelClass],
+            ])->lockForUpdate()->first();
+    
+            if ($favorite) {
+                \Log::info("❌ [$logId] Eliminado de favoritos", ['id' => $favorite->id]);
+                $favorite->delete();
+                return response()->json([
+                    'message' => 'Eliminado de favoritos',
+                    'status' => 'removed',
+                    'favoritable_id' => $request->favoritable_id,
+                    'favoritable_type' => $request->favoritable_type
+                ]);
+            }
+    
+            \Log::info("📌 [$logId] Creando favorito en la BD");
+    
+            $newFavorite = Favorite::create([
                 'user_id' => $user->id,
                 'favoritable_id' => $request->favoritable_id,
-                'favoritable_type' => $request->favoritable_type, // Guardamos "park" o "training"
+                'favoritable_type' => $modelClass,
             ]);
-            return response()->json(['message' => 'Agregado a favoritos', 'status' => 'added']);
-        }
+    
+            \Log::info("✅ [$logId] Agregado a favoritos", ['id' => $newFavorite->id]);
+    
+            return response()->json([
+                'message' => 'Agregado a favoritos',
+                'status' => 'added',
+                'favoritable_id' => $request->favoritable_id,
+                'favoritable_type' => $request->favoritable_type
+            ]);
+        });
     }
 
     // Mostrar favoritos
     public function index()
     {
         $user = Auth::user();
-
+    
         $favoriteParks = Favorite::where('user_id', $user->id)
-            ->where('favoritable_type', 'park') // Comparamos con "park" en lugar de la clase
+            ->where('favoritable_type', Park::class) // ✅ Ahora usa el modelo completo
             ->with('favoritable')
             ->get();
-
+    
         $favoriteTrainings = Favorite::where('user_id', $user->id)
-            ->where('favoritable_type', 'training') // Comparamos con "training" en lugar de la clase
+            ->where('favoritable_type', Training::class) // ✅ Ahora usa el modelo completo
             ->with('favoritable')
             ->get();
+   
+    
 
-        return view('favorites.index', compact('favoriteParks', 'favoriteTrainings'));
+    return view('favorites.index', compact('favoriteParks', 'favoriteTrainings', ));
     }
 }

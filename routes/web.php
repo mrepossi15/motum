@@ -192,6 +192,10 @@ Route::get('/mapa', [parkController::class, 'map'])
 Route::post('/reviews', [ReviewController::class, 'store'])
     ->name('reviews.store')
     ->middleware(['auth', 'role:alumno']);
+    
+Route::delete('/reviews/{id}', [ReviewController::class, 'destroy'])
+    ->name('reviews.destroy')
+    ->middleware('auth');
 
 /*
 |--------------------------------------------------------------------------
