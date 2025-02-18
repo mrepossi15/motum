@@ -5,11 +5,16 @@ use Illuminate\Http\Request;
 use App\Models\Payment;
 use App\Models\PaymentDetail;
 use App\Models\Cart;
+use App\Models\User;
 use App\Models\Training;
 use Illuminate\Support\Facades\Log;
 use App\Payment\MercadoPagoPayment;
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\Payment\PaymentClient;
+use App\Mail\PurchaseConfirmationMail;
+use App\Mail\TrainerNotificationMail;
+use Illuminate\Support\Facades\Mail;
+
 
 
 class PaymentController extends Controller
@@ -149,83 +154,87 @@ class PaymentController extends Controller
         }
     }
 
+    
     private function processPayment($paymentId)
-{
-    try {
-        // Autenticación con Mercado Pago
-        MercadoPagoConfig::setAccessToken(config('mercadopago.access_token'));
-        $mercadoPago = new \MercadoPago\Client\Payment\PaymentClient();
-        
-        // Obtener los detalles del pago
-        $paymentInfo = $mercadoPago->get($paymentId);
-        Log::info('Detalles del pago recibido:', (array) $paymentInfo);
-
-        if (!$paymentInfo || empty($paymentInfo->status)) {
-            Log::error('Error: No se pudo obtener la información del pago.', ['payment_id' => $paymentId]);
-            return response()->json(['error' => 'No se pudo obtener la información del pago.'], 400);
-        }
-
-        if ($paymentInfo->status === 'approved') {
-            Log::info("El pago $paymentId ha sido aprobado.");
-
-            // 📌 Recuperamos el usuario desde `external_reference`
-            $externalReference = $paymentInfo->external_reference ?? null;
-            if (!$externalReference) {
-                Log::error("No se encontró `external_reference` en el pago $paymentId.");
-                return response()->json(['error' => 'No se encontró referencia externa en el pago.'], 400);
+    {
+        try {
+            MercadoPagoConfig::setAccessToken(config('mercadopago.access_token'));
+            $mercadoPago = new \MercadoPago\Client\Payment\PaymentClient();
+            
+            $paymentInfo = $mercadoPago->get($paymentId);
+            Log::info('Detalles del pago recibido:', (array) $paymentInfo);
+    
+            if (!$paymentInfo || empty($paymentInfo->status)) {
+                Log::error('Error: No se pudo obtener la información del pago.', ['payment_id' => $paymentId]);
+                return response()->json(['error' => 'No se pudo obtener la información del pago.'], 400);
             }
-
-            // 📌 Buscar los items en el carrito de ese usuario
-            $cartItems = Cart::with('training.trainer')
-                ->where('user_id', $externalReference)
-                ->get();
-
-            if ($cartItems->isEmpty()) {
-                Log::error("No se encontraron items en el carrito para el usuario $externalReference.");
-                return response()->json(['error' => 'No se encontraron items en el carrito.'], 400);
-            }
-
-            $totalAmount = $paymentInfo->transaction_amount;
-            $companyFee = 10;
-            $trainerAmount = $totalAmount - $companyFee;
-            // 📌 Obtener la cantidad de sesiones semanales desde el carrito
-            $weeklySessions = $cartItems->first()->weekly_sessions ?? 1; // Si no está definido, por defecto 1
-            // Registrar pago en `payments`
-            $payment = Payment::create([
-                'user_id' => $externalReference,
-                'training_id' => $cartItems->first()->training->id,
-                'total_amount' => $totalAmount,
-                'company_fee' => $companyFee,
-                'trainer_amount' => $trainerAmount,
-                'status' => 'approved',
-                'payment_id' => $paymentId,
-                'external_reference' => $externalReference,
-                'weekly_sessions' => $weeklySessions, // 👈 Agregamos esta línea
-            ]);
-
-            // Registrar el pago en `payment_details`
-            foreach ($cartItems as $item) {
-                $trainer = $item->training->trainer;
-                PaymentDetail::create([
-                    'payment_id' => $payment->id,
-                    'user_id' => $trainer->id,
-                    'amount' => $trainerAmount,
-                    'type' => 'trainer',
+    
+            if ($paymentInfo->status === 'approved') {
+                Log::info("El pago $paymentId ha sido aprobado.");
+    
+                $externalReference = $paymentInfo->external_reference ?? null;
+                if (!$externalReference) {
+                    Log::error("No se encontró `external_reference` en el pago $paymentId.");
+                    return response()->json(['error' => 'No se encontró referencia externa en el pago.'], 400);
+                }
+    
+                $cartItems = Cart::with('training.trainer')->where('user_id', $externalReference)->get();
+    
+                if ($cartItems->isEmpty()) {
+                    Log::error("No se encontraron items en el carrito para el usuario $externalReference.");
+                    return response()->json(['error' => 'No se encontraron items en el carrito.'], 400);
+                }
+    
+                $totalAmount = $paymentInfo->transaction_amount;
+                $companyFee = 10;
+                $trainerAmount = $totalAmount - $companyFee;
+                $weeklySessions = $cartItems->first()->weekly_sessions ?? 1;
+    
+                $payment = Payment::create([
+                    'user_id' => $externalReference,
+                    'training_id' => $cartItems->first()->training->id,
+                    'total_amount' => $totalAmount,
+                    'company_fee' => $companyFee,
+                    'trainer_amount' => $trainerAmount,
+                    'status' => 'approved',
+                    'payment_id' => $paymentId,
+                    'external_reference' => $externalReference,
+                    'weekly_sessions' => $weeklySessions,
                 ]);
+    
+                foreach ($cartItems as $item) {
+                    $trainer = $item->training->trainer;
+                    PaymentDetail::create([
+                        'payment_id' => $payment->id,
+                        'user_id' => $trainer->id,
+                        'amount' => $trainerAmount,
+                        'type' => 'trainer',
+                    ]);
+                }
+    
+                // **📩 Enviar correos de confirmación**
+                $user = User::findOrFail($externalReference);
+                $training = $cartItems->first()->training;
+                $trainer = $training->trainer;
+    
+                // **Correo al alumno**
+                Mail::to($user->email)->send(new PurchaseConfirmationMail($user, $training));
+    
+                // **Correo al entrenador**
+                Mail::to($trainer->email)->send(new TrainerNotificationMail($trainer, $user, $training));
+    
+                // Vaciar carrito del usuario
+                Cart::where('user_id', $externalReference)->delete();
+    
+                return response()->json(['message' => 'Pago registrado con éxito'], 200);
             }
-
-            // Vaciar carrito del usuario
-            Cart::where('user_id', $externalReference)->delete();
-
-            return response()->json(['message' => 'Pago registrado con éxito'], 200);
+    
+            return response()->json(['message' => 'El pago aún no ha sido aprobado'], 400);
+        } catch (\Exception $e) {
+            Log::error('Error al procesar el pago:', ['message' => $e->getMessage()]);
+            return response()->json(['error' => 'Error al procesar el pago.'], 500);
         }
-
-        return response()->json(['message' => 'El pago aún no ha sido aprobado'], 400);
-    } catch (\Exception $e) {
-        Log::error('Error al procesar el pago:', ['message' => $e->getMessage()]);
-        return response()->json(['error' => 'Error al procesar el pago.'], 500);
     }
-}
 
     /**
      * Redirección cuando el pago es exitoso.

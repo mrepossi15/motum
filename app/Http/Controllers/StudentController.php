@@ -15,6 +15,8 @@ use App\Traits\HandlesImages;
 use App\Models\TrainingSchedule;
 use App\Models\TrainingReservation;
 use Illuminate\Support\Facades\Log;
+use App\Mail\WelcomeMail;
+use Illuminate\Support\Facades\Mail;
 
 
 class StudentController extends Controller
@@ -64,6 +66,7 @@ class StudentController extends Controller
             'medical_fit' => 'nullable|image|mimes:jpeg,png,jpg',
             'medical_fit_description' => $input['medical_fit_description'] ?? null,
         ]);
+        Mail::to($user->email)->send(new WelcomeMail($user));
     
         // Iniciar sesión automáticamente
         Auth::login($user);

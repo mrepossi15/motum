@@ -14,6 +14,8 @@ use App\Models\UserExperience;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Facades\Image;
+use App\Mail\WelcomeMail;
+use Illuminate\Support\Facades\Mail;
 
 
 
@@ -116,6 +118,7 @@ class TrainerController extends Controller
     
         $user = User::create($userData);
         
+        Mail::to($user->email)->send(new WelcomeMail($user));
 
         Auth::login($user);
     

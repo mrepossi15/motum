@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+
 use Illuminate\Http\Request;
 use App\Models\Training;
 use App\Models\Activity;
@@ -16,6 +17,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Facades\Image;
 use App\Models\TrainingReservation;
+use App\Mail\TrainingCreatedMail;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\TrainingSuspendedMail;
 
 
 class TrainingController extends Controller
@@ -66,7 +70,8 @@ class TrainingController extends Controller
             'available_spots' => 'required|integer|min:1', // Validar cupos disponibles como un entero mínimo de 1
         ]);
 
-    
+        $trainer = auth()->user();
+
         $existingStartTimes = [];
         foreach ($request->schedule['days'] as $index => $days) {
             foreach ($days as $day) {
@@ -142,6 +147,8 @@ class TrainingController extends Controller
                 'price' => $request->prices['price'][$index],
             ]);
         }
+
+        Mail::to($trainer->email)->send(new TrainingCreatedMail($trainer, $training));
 
         return redirect()->route('trainer.calendar')->with('success', 'Entrenamiento creado exitosamente.');
     }
@@ -464,6 +471,23 @@ class TrainingController extends Controller
          );
  
          \Log::info("✅ Clase suspendida con éxito para training_schedule_id={$schedule->id} en fecha {$trainingDate}");
+        // ✅ Obtener alumnos inscritos
+        $students = TrainingReservation::where('training_id', $trainingId)
+        ->where('date', $trainingDate)
+        ->pluck('user_id');
+
+        if ($students->isEmpty()) {
+        \Log::info("🚨 No hay alumnos inscritos para notificar.");
+        } else {
+        $emails = \App\Models\User::whereIn('id', $students)->pluck('email');
+
+        foreach ($emails as $email) {
+            Mail::to($email)->send(new TrainingSuspendedMail($schedule->training, $trainingDate));
+        }
+
+        \Log::info("📩 Se enviaron correos a los alumnos inscritos.");
+        }
+
          $deletedReservations = TrainingReservation::where('training_id', $trainingId)
          ->where('date', $trainingDate)
          ->delete();
