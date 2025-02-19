@@ -37,7 +37,10 @@ Route::get('/trainings', [TrainingController::class, 'getTrainingsByPark']);
 
 
 
-Route::post('/payment/webhook', [PaymentController::class, 'handleWebhook']);
+
+
+// 🔹 Webhook de Mercado Pago para recibir confirmaciones de pago
+Route::post('/payment/webhook', [PaymentController::class, 'handleWebhook'])->name('payment.webhook');
 
 
 

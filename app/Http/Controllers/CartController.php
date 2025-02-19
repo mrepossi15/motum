@@ -13,7 +13,7 @@ class CartController extends Controller
             'training_id' => 'required|exists:trainings,id',
             'weekly_sessions' => 'required|integer|min:1',
         ]);
-
+    
         Cart::updateOrCreate(
             [
                 'user_id' => auth()->id(),
@@ -23,8 +23,8 @@ class CartController extends Controller
                 'weekly_sessions' => $request->weekly_sessions,
             ]
         );
-
-        return response()->json(['success' => 'Entrenamiento agregado al carrito.']);
+    
+        return redirect()->back()->with('cart_success', 'El entrenamiento ha sido agregado al carrito.');
     }
 
     public function viewCart()

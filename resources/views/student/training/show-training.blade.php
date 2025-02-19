@@ -124,21 +124,21 @@
             @endauth
 
             <div class="modal-footer">
-                <form action="{{ route('cart.add') }}" method="POST">
-                    @csrf
-                    <input type="hidden" name="training_id" value="{{ $training->id }}">
-                    <div class="mb-3">
-                        <label for="weekly_sessions" class="form-label">Cantidad de veces por semana:</label>
-                        <select name="weekly_sessions" id="weekly_sessions" class="form-control" required>
-                            @foreach ($training->prices as $price)
-                                <option value="{{ $price->weekly_sessions }}">
-                                    {{ $price->weekly_sessions }} veces por semana - ${{ $price->price }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <button type="submit" class="btn bg-naranja text-white">Comprar y reservar clase</button>
-                </form>
+            <form action="{{ route('cart.add') }}" method="POST">
+                @csrf
+                <input type="hidden" name="training_id" value="{{ $training->id }}">
+                <div class="mb-3">
+                    <label for="weekly_sessions" class="form-label">Cantidad de veces por semana:</label>
+                    <select name="weekly_sessions" id="weekly_sessions" class="form-control" required>
+                        @foreach ($training->prices as $price)
+                            <option value="{{ $price->weekly_sessions }}">
+                                {{ $price->weekly_sessions }} veces por semana - ${{ $price->price }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <button type="submit" class="btn bg-naranja text-white">Comprar y reservar clase</button>
+            </form>
             </div>
         </div>
 
@@ -176,6 +176,32 @@
             </div>
         </div>
     </div>
+    @if(session('cart_success'))
+    <div class="modal fade" id="cartAddedModal" tabindex="-1" aria-labelledby="cartAddedLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cartAddedLabel">¡Agregado al carrito!</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    ✅ {{ session('cart_success') }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Aceptar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            let cartModal = new bootstrap.Modal(document.getElementById("cartAddedModal"));
+            cartModal.show();
+        });
+    </script>
+@endif
+    
 
 </main>
 <script>

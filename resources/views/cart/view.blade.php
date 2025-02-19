@@ -47,10 +47,13 @@
     @endif
 
     @if ($cartItems->isNotEmpty())
-        <form method="POST" action="{{ url('/payment/split') }}">
+        <form method="POST" action="{{ url('/payment/create') }}">
             @csrf
             <button class="btn btn-primary">Proceder al Pago</button>
         </form>
     @endif
+    <a href="{{ url()->previous() }}" class="btn btn-secondary">
+    ⬅️ Atrás
+</a>
 </div>
 @endsection

@@ -73,5 +73,8 @@
         @endforeach
     </table>
 @endif
+<a href="{{ url()->previous() }}" class="btn btn-secondary">
+    ⬅️ Atrás
+</a>
 </main>
 @endsection

@@ -192,7 +192,7 @@ Route::get('/mapa', [parkController::class, 'map'])
 Route::post('/reviews', [ReviewController::class, 'store'])
     ->name('reviews.store')
     ->middleware(['auth', 'role:alumno']);
-    
+
 Route::delete('/reviews/{id}', [ReviewController::class, 'destroy'])
     ->name('reviews.destroy')
     ->middleware('auth');
@@ -219,7 +219,7 @@ Route::post('password/reset', [ResetPasswordController::class, 'reset'])
 | Rutas para el carrito
 |--------------------------------------------------------------------------
 */ 
-Route::middleware(['auth'])->group(function () {
+
 Route::post('/cart/add', [CartController::class, 'add'])
 ->name('cart.add');;
 Route::get('/cart/view', [CartController::class, 'viewCart'])
@@ -228,15 +228,16 @@ Route::post('/cart/remove', [CartController::class, 'remove'])
 ->name('cart.remove');
 Route::post('/cart/clear', [CartController::class, 'clear'])
 ->name('cart.clear');
-Route::post('/payment/split', [PaymentController::class, 'createSplitPayment']);
-});
 
-Route::post('/payment/webhook', [PaymentController::class, 'handleWebhook']);
-Route::get('/payment/success', [PaymentController::class, 'success']);
-Route::get('/payment/failure', [PaymentController::class, 'failure']);
-Route::get('/payment/pending', [PaymentController::class, 'pending']);
-Route::get('/mis-compras', [PaymentController::class, 'userPayments'])->name('user.payments')->middleware('auth');
+Route::post('/payment/create', [PaymentController::class, 'createPayment'])->name('payment.create');
 
+    // 🔹 Ver pagos realizados
+Route::get('/payments', [PaymentController::class, 'userPayments'])->name('payments.index');
+
+    // 🔹 Páginas de redirección después del pago
+Route::get('/payment/success', [PaymentController::class, 'success'])->name('payment.success');
+Route::get('/payment/failure', [PaymentController::class, 'failure'])->name('payment.failure');
+Route::get('/payment/pending', [PaymentController::class, 'pending'])->name('payment.pending');
 
 
   

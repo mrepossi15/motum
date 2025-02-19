@@ -10,7 +10,7 @@
         <!-- Agregar enctype para manejar la subida de archivos -->
         <form action="{{ route('store.student') }}" method="POST" enctype="multipart/form-data">
             @csrf
-
+            <input type="hidden" name="role" value="alumno">
             <div class="mb-3">
                 <label for="name" class="form-label">Nombre completo *</label>
                 <input type="text" 

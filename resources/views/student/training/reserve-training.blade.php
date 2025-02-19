@@ -22,6 +22,9 @@
 
         <button type="submit" class="btn btn-primary mt-3">Reservar</button>
     </form>
+    <a href="{{ url()->previous() }}" class="btn btn-secondary">
+    ⬅️ Atrás
+</a>
 </main>
 
 <script>
